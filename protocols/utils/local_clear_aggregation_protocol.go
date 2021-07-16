@@ -42,7 +42,7 @@ func NewLocalClearAggregationProtocol(n *onet.TreeNodeInstance) (onet.ProtocolIn
 	return pvp, nil
 }
 
-var finalResultClearAggr = make(chan []libunlynx.DpClearResponse)
+var finalResultClearAggr = make(chan []libunlynx.DpClearResponse, 1)
 
 // Start is called at the root to start the execution of the local clear aggregation.
 func (p *LocalClearAggregationProtocol) Start() error {

@@ -54,7 +54,6 @@ func (sim *AddRmSimulation) Setup(dir string, hosts []string) (*onet.SimulationC
 // Run starts the simulation.
 func (sim *AddRmSimulation) Run(config *onet.SimulationConfig) error {
 	for round := 0; round < sim.Rounds; round++ {
-		log.Lvl1("Starting round", round)
 
 		rooti, err := config.Overlay.CreateProtocol("AddRmServer", config.Tree, onet.NilServiceID)
 
@@ -72,8 +71,6 @@ func (sim *AddRmSimulation) Run(config *onet.SimulationConfig) error {
 		for i := range ct {
 			ct[i] = *libunlynx.EncryptInt(pubKey, 1)
 		}
-
-		log.Lvl1("starting protocol with ", len(ct), " responses")
 
 		root.ProtocolInstance().(*protocolsunlynxutils.AddRmServerProtocol).TargetOfTransformation = ct
 		root.ProtocolInstance().(*protocolsunlynxutils.AddRmServerProtocol).Proofs = sim.Proofs

@@ -32,10 +32,7 @@ func TestLocalClearAggregation(t *testing.T) {
 	protocol.TargetOfAggregation = testData
 	feedback := protocol.FeedbackChannel
 
-	go func() {
-		err := protocol.Start()
-		assert.NoError(t, err)
-	}()
+	assert.NoError(t, protocol.Start())
 
 	timeout := network.WaitRetry * time.Duration(network.MaxRetryConnect*10) * time.Millisecond
 

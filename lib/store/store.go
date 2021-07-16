@@ -176,7 +176,6 @@ func (s *Store) nextID() uint64 {
 func AddInClear(s []libunlynx.DpClearResponse) []libunlynx.DpClearResponse {
 	dataMap := make(map[string][]int64)
 
-	wg := libunlynx.StartParallelize(0)
 	for _, elem := range s {
 		groupByClear := libunlynxtools.Int64ArrayToString(libunlynxtools.ConvertMapToData(elem.GroupByClear, "g", 0))
 		groupByEnc := libunlynxtools.Int64ArrayToString(libunlynxtools.ConvertMapToData(elem.GroupByEnc, "g", len(elem.GroupByClear)))
@@ -202,13 +201,15 @@ func AddInClear(s []libunlynx.DpClearResponse) []libunlynx.DpClearResponse {
 		if _, ok := dataMap[key]; !ok {
 			dataMap[key] = cpy
 		} else {
-			for i := 0; i < len(dataMap[key]); i = i + libunlynx.VPARALLELIZE {
-				wg.Add(1)
-				go func(i int) {
-					defer wg.Done()
-					for j := 0; j < libunlynx.VPARALLELIZE && (j+i < len(dataMap[key])); j++ {
+			size := uint(len(dataMap[key]))
+			numberOfSteps := (size + libunlynx.VPARALLELIZE) / libunlynx.VPARALLELIZE
+			wg := libunlynx.StartParallelize(numberOfSteps)
+			for i := uint(0); i < size; i += libunlynx.VPARALLELIZE {
+				go func(i uint) {
+					for j := uint(0); j < libunlynx.VPARALLELIZE && (j+i < uint(len(dataMap[key]))); j++ {
 						dataMap[key][j+i] += cpy[j+i]
 					}
+					wg.Done(nil)
 				}(i)
 			}
 			libunlynx.EndParallelize(wg)

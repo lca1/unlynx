@@ -214,15 +214,17 @@ func (p *KeySwitchingProtocol) Dispatch() error {
 	if p.IsRoot() {
 		ksCiphers := *libunlynx.NewCipherVector(len(*p.TargetOfSwitch))
 
-		wg := libunlynx.StartParallelize(len(*p.TargetOfSwitch))
+		wg := libunlynx.StartParallelize(uint(len(*p.TargetOfSwitch)))
 		for i, v := range *p.TargetOfSwitch {
 			go func(i int, v libunlynx.CipherText) {
-				defer wg.Done()
 				ksCiphers[i].K = (*p.NodeContribution)[i].K
 				ksCiphers[i].C = libunlynx.SuiTe.Point().Add((*p.NodeContribution)[i].C, v.C)
+				wg.Done(nil)
 			}(i, v)
 		}
-		libunlynx.EndParallelize(wg)
+		if err := libunlynx.EndParallelize(wg); err != nil {
+			return err
+		}
 		p.FeedbackChannel <- ksCiphers
 	}
 	return nil

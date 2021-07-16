@@ -199,25 +199,16 @@ func (pkslp *PublishedKSListProof) ToBytes() (PublishedKSListProofBytes, error) 
 
 	prsB := make([]PublishedKSProofBytes, len(pkslp.List))
 
-	var err error
-	mutex := sync.Mutex{}
-	wg := libunlynx.StartParallelize(len(pkslp.List))
+	wg := libunlynx.StartParallelize(uint(len(pkslp.List)))
 	for i, pksp := range pkslp.List {
 		go func(index int, pksp PublishedKSProof) {
-			defer wg.Done()
-			data, tmpErr := pksp.ToBytes()
-			if tmpErr != nil {
-				mutex.Lock()
-				err = tmpErr
-				mutex.Unlock()
-				return
-			}
+			data, err := pksp.ToBytes()
+			defer wg.Done(err)
+
 			prsB[index] = data
 		}(i, pksp)
 	}
-	libunlynx.EndParallelize(wg)
-
-	if err != nil {
+	if err := libunlynx.EndParallelize(wg); err != nil {
 		return PublishedKSListProofBytes{}, err
 	}
 
@@ -227,27 +218,18 @@ func (pkslp *PublishedKSListProof) ToBytes() (PublishedKSListProofBytes, error) 
 
 // FromBytes converts bytes back to PublishedKSListProof
 func (pkslp *PublishedKSListProof) FromBytes(pkslpb PublishedKSListProofBytes) error {
-	var err error
-	mutex := sync.Mutex{}
 	prs := make([]PublishedKSProof, len(pkslpb.List))
-	wg := libunlynx.StartParallelize(len(pkslpb.List))
+	wg := libunlynx.StartParallelize(uint(len(pkslpb.List)))
 	for i, pkspb := range pkslpb.List {
 		go func(index int, pkspb PublishedKSProofBytes) {
-			defer wg.Done()
 			tmp := PublishedKSProof{}
-			tmpErr := tmp.FromBytes(pkspb)
-			if tmpErr != nil {
-				mutex.Lock()
-				err = tmpErr
-				mutex.Unlock()
-				return
-			}
+			err := tmp.FromBytes(pkspb)
+			defer wg.Done(err)
+
 			prs[index] = tmp
 		}(i, pkspb)
 	}
-	libunlynx.EndParallelize(wg)
-
-	if err != nil {
+	if err := libunlynx.EndParallelize(wg); err != nil {
 		return err
 	}
 	pkslp.List = prs

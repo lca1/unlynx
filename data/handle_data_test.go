@@ -61,6 +61,6 @@ func TestCompareClearResponses(t *testing.T) {
 func TestComputeExpectedResult(t *testing.T) {
 	data, err := dataunlynx.ReadDataFromFile(filename)
 	assert.NoError(t, err)
-	assert.Equal(t, dataunlynx.CompareClearResponses(dataunlynx.ComputeExpectedResult(testData, 1, false), dataunlynx.ComputeExpectedResult(data, 1, false)), true, "Result should be the same")
-	assert.Equal(t, dataunlynx.CompareClearResponses(dataunlynx.ComputeExpectedResult(testData, 1, true), dataunlynx.ComputeExpectedResult(data, 1, true)), true, "Result should be the same")
+	assert.True(t, dataunlynx.CompareClearResponses(dataunlynx.ComputeExpectedResult(testData, 1, false), dataunlynx.ComputeExpectedResult(data, 1, false)), "Result should be the same")
+	assert.True(t, dataunlynx.CompareClearResponses(dataunlynx.ComputeExpectedResult(testData, 1, true), dataunlynx.ComputeExpectedResult(data, 1, true)), "Result should be the same")
 }

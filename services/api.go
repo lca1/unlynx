@@ -7,7 +7,6 @@ import (
 	"go.dedis.ch/onet/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
-	"sync"
 )
 
 // API represents a client with the server to which he is connected and its public/private key pair.
@@ -114,25 +113,19 @@ func EncryptDataToSurvey(name string, surveyID SurveyID, dpClearResponses []libu
 	var dpResponses []libunlynx.DpResponseToSend
 	dpResponses = make([]libunlynx.DpResponseToSend, nbrResponses*dataRepetitions)
 
-	var err error
-	mutex := sync.Mutex{}
-
-	wg := libunlynx.StartParallelize(len(dpClearResponses))
+	wg := libunlynx.StartParallelize(uint(len(dpClearResponses)))
 	round := libunlynx.StartTimer(name + "_ClientEncryption")
 
 	for i, v := range dpClearResponses {
 		go func(i int, v libunlynx.DpClearResponse) {
-			defer wg.Done()
 			// dataRepetitions is used to make the simulations faster by using the same response multiple times
 			// should be set to 1 if no repet
 			i = i * dataRepetitions
 			if i < len(dpResponses) {
-				var tmpErr error
-				dpResponses[i], tmpErr = libunlynx.EncryptDpClearResponse(v, groupKey, count)
-				if tmpErr != nil {
-					mutex.Lock()
-					err = tmpErr
-					mutex.Unlock()
+				var err error
+				dpResponses[i], err = libunlynx.EncryptDpClearResponse(v, groupKey, count)
+				if err != nil {
+					wg.Done(err)
 					return
 				}
 
@@ -145,9 +138,11 @@ func EncryptDataToSurvey(name string, surveyID SurveyID, dpClearResponses []libu
 					dpResponses[i+j].AggregatingAttributesEnc = dpResponses[i].AggregatingAttributesEnc
 				}
 			}
+
+			wg.Done(nil)
 		}(i, v)
 	}
-	libunlynx.EndParallelize(wg)
+	err := libunlynx.EndParallelize(wg)
 	libunlynx.EndTimer(round)
 
 	if err != nil {

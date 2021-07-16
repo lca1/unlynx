@@ -344,24 +344,16 @@ func (sm *ChildAggregatedDataMessage) ToBytes() ([]byte, int, int, int, error) {
 	var aabLength int
 	var dtbLength int
 
-	wg := libunlynx.StartParallelize(len((*sm).ChildData))
+	wg := libunlynx.StartParallelize(uint(len((*sm).ChildData)))
 	var mutexCD sync.Mutex
-	var err error
 	for i := range (*sm).ChildData {
 		go func(i int) {
-			defer wg.Done()
-
 			mutexCD.Lock()
 			data := (*sm).ChildData[i]
 			mutexCD.Unlock()
 
-			aux, gacbAux, aabAux, dtbAux, tmpErr := data.ToBytes()
-			if tmpErr != nil {
-				mutexCD.Lock()
-				err = tmpErr
-				mutexCD.Unlock()
-				return
-			}
+			aux, gacbAux, aabAux, dtbAux, err := data.ToBytes()
+			defer wg.Done(err)
 
 			mutexCD.Lock()
 			bb[i] = aux
@@ -372,9 +364,7 @@ func (sm *ChildAggregatedDataMessage) ToBytes() ([]byte, int, int, int, error) {
 
 		}(i)
 	}
-	libunlynx.EndParallelize(wg)
-
-	if err != nil {
+	if err := libunlynx.EndParallelize(wg); err != nil {
 		return nil, 0, 0, 0, err
 	}
 
@@ -395,25 +385,12 @@ func (sm *ChildAggregatedDataMessage) FromBytes(data []byte, gacbLength, aabLeng
 
 		(*sm).ChildData = make([]libunlynx.FilteredResponseDet, nbrChildData)
 
-		var err error
-		mutex := sync.Mutex{}
-		wg := libunlynx.StartParallelize(nbrChildData)
+		wg := libunlynx.StartParallelize(uint(nbrChildData))
 		for i := 0; i < nbrChildData; i++ {
 			v := data[i*elementLength : i*elementLength+elementLength]
-			go func(v []byte, i int) {
-				defer wg.Done()
-				tmpErr := (*sm).ChildData[i].FromBytes(v, gacbLength, aabLength, dtbLength)
-				if tmpErr != nil {
-					mutex.Lock()
-					err = tmpErr
-					mutex.Unlock()
-					return
-				}
-			}(v, i)
+			go wg.Done((*sm).ChildData[i].FromBytes(v, gacbLength, aabLength, dtbLength))
 		}
-		libunlynx.EndParallelize(wg)
-
-		if err != nil {
+		if err := libunlynx.EndParallelize(wg); err != nil {
 			return err
 		}
 	}

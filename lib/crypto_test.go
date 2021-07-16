@@ -1,6 +1,7 @@
 package libunlynx_test
 
 import (
+	"fmt"
 	"github.com/ldsec/unlynx/lib"
 	"github.com/stretchr/testify/assert"
 	"go.dedis.ch/kyber/v3"
@@ -67,33 +68,28 @@ func TestEncryptIntVector(t *testing.T) {
 
 // TestDecryptionConcurrent test the multiple encryptions/decryptions at the same time
 func TestDecryptionConcurrent(t *testing.T) {
-	numThreads := 5
+	numThreads := uint(5)
 	secKey, pubKey := libunlynx.GenKey()
 
-	wg := libunlynx.StartParallelize(numThreads)
+	for i := uint(0); i < numThreads; i++ {
+		t.Run(fmt.Sprintf("TestDecryptionConcurrent/%v", i), func(t *testing.T) {
+			t.Parallel()
 
-	for i := 0; i < numThreads; i++ {
-		wg.Done()
-		go func() {
 			ct := libunlynx.EncryptInt(pubKey, 0)
 			val := libunlynx.DecryptInt(secKey, *ct)
 			assert.Equal(t, val, int64(0))
-		}()
+		})
 	}
-
-	libunlynx.EndParallelize(wg)
 }
 
 // TestDecryptionConcurrent test the multiple encryptions/decryptions at the same time
 func TestDecryptionNegConcurrent(t *testing.T) {
-	numThreads := 5
+	numThreads := uint(5)
 	secKey, pubKey := libunlynx.GenKey()
 
-	wg := libunlynx.StartParallelize(numThreads)
-
-	for i := 0; i < numThreads; i++ {
-		go func() {
-			wg.Done()
+	for i := uint(0); i < numThreads; i++ {
+		t.Run(fmt.Sprintf("TestDecryptionNegConcurrent/%v", i), func(t *testing.T) {
+			t.Parallel()
 
 			ct := libunlynx.EncryptInt(pubKey, 3)
 			val := libunlynx.DecryptIntWithNeg(secKey, *ct)
@@ -106,9 +102,8 @@ func TestDecryptionNegConcurrent(t *testing.T) {
 			ct = libunlynx.EncryptInt(pubKey, -3)
 			val = libunlynx.DecryptIntWithNeg(secKey, *ct)
 			assert.Equal(t, val, int64(-3))
-		}()
+		})
 	}
-	libunlynx.EndParallelize(wg)
 }
 
 // TestNullCipherText verifies encryption, decryption and behavior of null cipherVectors.

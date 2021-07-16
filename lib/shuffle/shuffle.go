@@ -44,11 +44,11 @@ func ShuffleSequence(inputList []libunlynx.CipherVector, g, h kyber.Point, preco
 
 	outputList := make([]libunlynx.CipherVector, k)
 
-	wg := libunlynx.StartParallelize(k)
+	wg := libunlynx.StartParallelize(uint(k))
 	for i := 0; i < k; i++ {
 		go func(outputList []libunlynx.CipherVector, i int) {
-			defer wg.Done()
 			shuffle(pi, i, inputList, outputList, NQ, beta, precomputedPoints, g, h)
+			wg.Done(nil)
 		}(outputList, i)
 	}
 	libunlynx.EndParallelize(wg)
@@ -60,7 +60,7 @@ func ShuffleSequence(inputList []libunlynx.CipherVector, g, h kyber.Point, preco
 func shuffle(pi []int, i int, inputList, outputList []libunlynx.CipherVector, NQ int, beta [][]kyber.Scalar, precomputedPoints []libunlynx.CipherVector, g, h kyber.Point) {
 	index := pi[i]
 	outputList[i] = *libunlynx.NewCipherVector(NQ)
-	wg := libunlynx.StartParallelize(NQ)
+	wg := libunlynx.StartParallelize(uint(NQ))
 	for j := 0; j < NQ; j++ {
 		var b kyber.Scalar
 		var ct libunlynx.CipherText
@@ -70,8 +70,8 @@ func shuffle(pi []int, i int, inputList, outputList []libunlynx.CipherVector, NQ
 			ct = precomputedPoints[index][j]
 		}
 		go func(j int) {
-			defer wg.Done()
 			outputList[i][j] = rerandomize(inputList[index], b, b, ct, g, h, j)
+			wg.Done(nil)
 		}(j)
 	}
 	libunlynx.EndParallelize(wg)
@@ -102,15 +102,13 @@ func rerandomize(cv libunlynx.CipherVector, a, b kyber.Scalar, cipher libunlynx.
 // CreatePrecomputedRandomize creates precomputed values for shuffling using public key and size parameters
 func CreatePrecomputedRandomize(g, h kyber.Point, rand cipher.Stream, lineSize, nbrLines int) []CipherVectorScalar {
 	result := make([]CipherVectorScalar, nbrLines)
-	wg := libunlynx.StartParallelize(len(result))
+	wg := libunlynx.StartParallelize(uint(len(result)))
 	var mutex sync.Mutex
 	for i := range result {
 		result[i].CipherV = make(libunlynx.CipherVector, lineSize)
 		result[i].S = make([]kyber.Scalar, lineSize)
 
 		go func(i int) {
-			defer (*wg).Done()
-
 			for w := range result[i].CipherV {
 				mutex.Lock()
 				scalar := libunlynx.SuiTe.Scalar().Pick(rand)
@@ -121,6 +119,7 @@ func CreatePrecomputedRandomize(g, h kyber.Point, rand cipher.Stream, lineSize, 
 				result[i].CipherV[w].C = libunlynx.SuiTe.Point().Mul(scalar, h)
 			}
 
+			wg.Done(nil)
 		}(i)
 	}
 	libunlynx.EndParallelize(wg)

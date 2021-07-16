@@ -729,35 +729,21 @@ func FromBytesToAbstractPoints(target []byte) ([]kyber.Point, error) {
 
 // ArrayCipherVectorToBytes converts an array of CipherVector to an array of bytes (plus an array of byte lengths)
 func ArrayCipherVectorToBytes(data []CipherVector) ([]byte, []byte, error) {
-	length := len(data)
+	length := uint(len(data))
 
 	b := make([]byte, 0)
 	bb := make([][]byte, length)
 	cvLengths := make([]int, length)
 
 	wg := StartParallelize(length)
-	var mutex sync.Mutex
-	var err error
 	for i := range data {
 		go func(i int) {
-			defer wg.Done()
-
-			mutex.Lock()
-			data := data[i]
-			mutex.Unlock()
-			var tmpErr error
-			bb[i], cvLengths[i], tmpErr = data.ToBytes()
-			if tmpErr != nil {
-				mutex.Lock()
-				err = tmpErr
-				mutex.Unlock()
-				return
-			}
+			var err error
+			bb[i], cvLengths[i], err = data[i].ToBytes()
+			wg.Done(err)
 		}(i)
 	}
-	EndParallelize(wg)
-
-	if err != nil {
+	if err := EndParallelize(wg); err != nil {
 		return nil, nil, err
 	}
 
@@ -773,36 +759,27 @@ func FromBytesToArrayCipherVector(data []byte, cvLengthsByte []byte) ([]CipherVe
 	dataConverted := make([]CipherVector, len(cvLengths))
 	elementSize := CipherTextByteSize()
 
-	var err error
-	mutex := sync.Mutex{}
-	wg := StartParallelize(len(cvLengths))
+	wg := StartParallelize(uint(len(cvLengths)))
 
 	// iter over each value in the flatten data byte array
 	bytePos := 0
-	for i := 0; i < len(cvLengths); i++ {
+	for i := range cvLengths {
 		nextBytePos := bytePos + cvLengths[i]*elementSize
 
 		cv := make(CipherVector, cvLengths[i])
 		v := data[bytePos:nextBytePos]
 
 		go func(v []byte, i int) {
-			defer wg.Done()
-			tmpErr := cv.FromBytes(v, cvLengths[i])
-			if tmpErr != nil {
-				mutex.Lock()
-				err = tmpErr
-				mutex.Unlock()
-				return
-			}
+			err := cv.FromBytes(v, cvLengths[i])
+			defer wg.Done(err)
+
 			dataConverted[i] = cv
 		}(v, i)
 
 		// advance pointer
 		bytePos = nextBytePos
 	}
-	EndParallelize(wg)
-
-	if err != nil {
+	if err := EndParallelize(wg); err != nil {
 		return nil, err
 	}
 

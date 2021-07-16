@@ -7,7 +7,6 @@ import (
 	"github.com/ldsec/unlynx/lib/tools"
 	"github.com/ldsec/unlynx/services"
 	"strconv"
-	"sync"
 
 	"github.com/BurntSushi/toml"
 	"go.dedis.ch/onet/v3"
@@ -141,24 +140,18 @@ func (sim *SimulationUnLynx) Run(config *onet.SimulationConfig) error {
 
 		log.Lvl1("Sending response data... ")
 		dataHolder := make([]*servicesunlynx.API, sim.NbrDPs)
-		wg := libunlynx.StartParallelize(len(dataHolder))
+		wg := libunlynx.StartParallelize(uint(len(dataHolder)))
 
-		mutex := sync.Mutex{}
 		for i, client := range dataHolder {
 			start := libunlynx.StartTimer(strconv.Itoa(i) + "_IndividualSendingData")
 			go func(i int, client *servicesunlynx.API) {
-				defer wg.Done()
 
 				dataCollection := testData[strconv.Itoa(i)]
 				server := el.List[i%nbrHosts]
 
 				client = servicesunlynx.NewUnLynxClient(server, strconv.Itoa(i+1))
-				if tmpErr := client.SendSurveyResponseQuery(*surveyID, dataCollection, el.Aggregate, sim.DataRepetitions, count); tmpErr != nil {
-					mutex.Lock()
-					err = fmt.Errorf("Error while sending DP ("+client.String()+") responses: %v", err)
-					log.Error(err)
-					mutex.Unlock()
-				}
+				err := client.SendSurveyResponseQuery(*surveyID, dataCollection, el.Aggregate, sim.DataRepetitions, count)
+				wg.Done(err)
 			}(i, client)
 			libunlynx.EndTimer(start)
 
